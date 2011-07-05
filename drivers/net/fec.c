@@ -797,7 +797,8 @@ static phy_cmd_t const phy_cmd_lxt970_shutdown[] = { /* disable interrupts */
 		{ mk_mii_end, }
 	};
 static phy_info_t const phy_info_lxt970 = {
-	.id = 0x07810000,
+/*	.id = 0x07810000,*/
+	.id = 0x0000e723,
 	.name = "LXT970",
 	.config = phy_cmd_lxt970_config,
 	.startup = phy_cmd_lxt970_startup,
