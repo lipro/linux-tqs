@@ -132,4 +132,13 @@ config MACH_TQMA35
 	  Include support for TQ-Systems TQMa35 platform. This includes
 	  specific configurations for the board and its peripherals.
 
+menu "TQMa35 configuration options"
+	depends on MACH_TQMA35
+
+config TQMA35_LVDS_DISPLAY
+	bool "Support TQMa35 display over LVDS"
+	default n
+
+endmenu
+
 endif

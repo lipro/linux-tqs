@@ -172,6 +172,9 @@ static const struct fb_videomode fb_modedb[] = {
 		.refresh	= 60,
 		.xres		= 480,
 		.yres		= 272,
+/* TODO: pixelclock is overclocked for stable LVDS */
+/* valid 9 .. 15 MHz, functional 18.5 MHz */
+#if !defined(CONFIG_TQMA35_LVDS_DISPLAY)
 		.pixclock	= KHZ2PICOS(9000),
 		.left_margin	= 2,
 		.right_margin	= 2,
@@ -179,6 +182,15 @@ static const struct fb_videomode fb_modedb[] = {
 		.lower_margin	= 2,
 		.hsync_len	= 41,
 		.vsync_len	= 10,
+#else
+		.pixclock	= KHZ2PICOS(18500),
+		.left_margin	= 82,    /* horz front porch */
+		.right_margin	= 2,     /* horz back porch */
+		.upper_margin	= 115,   /* vert front porch */
+		.lower_margin	= 2,     /* vert back porch */
+		.hsync_len	= 41,
+		.vsync_len	= 10,
+#endif
 		.sync		= FB_SYNC_OE_ACT_HIGH | FB_SYNC_SWAP_RGB,
 		.vmode		= FB_VMODE_NONINTERLACED,
 		.flag		= 0,
@@ -190,6 +202,9 @@ static const struct fb_videomode fb_modedb[] = {
 		.refresh	= 60,
 		.xres		= 480,
 		.yres		= 272,
+/* TODO: pixelclock is overclocked for stable LVDS */
+/* valid 9 .. 15 MHz, functional 19 MHz */
+#if !defined(CONFIG_TQMA35_LVDS_DISPLAY)
 		.pixclock	= KHZ2PICOS(9000),
 		.left_margin	= 2,
 		.right_margin	= 2,
@@ -197,6 +212,15 @@ static const struct fb_videomode fb_modedb[] = {
 		.lower_margin	= 2,
 		.hsync_len	= 41,
 		.vsync_len	= 10,
+#else
+		.pixclock	= KHZ2PICOS(19000),
+		.left_margin	= 43, /* 82,*/
+		.right_margin	= 2,
+		.upper_margin	= 12, /* 115,*/
+		.lower_margin	= 2,
+		.hsync_len	= 40, /* 41,*/
+		.vsync_len	= 10,
+#endif
 		.sync		= FB_SYNC_SWAP_RGB,
 		.vmode		= FB_VMODE_NONINTERLACED,
 		.flag		= 0,
@@ -593,9 +617,14 @@ static int mba35_misc_gpio_setup(struct i2c_client *client, unsigned gpio,
 		pr_warning("Cannot open UI expander pin %d\n", 7);
 		goto setup_misc_lvds_ena_fail;
 	}
-	/* user LVDS-ENA: pulled down with 4k7k @ LVDS transmitter */
-	gpio_direction_output(gpio + 7, 0);
 
+	/* LVDS-ENA: pulled down with 4k7k @ LVDS transmitter */
+	gpio_direction_output(TQMA35_MBA35_LVDS_ENA, 0);
+#if defined(CONFIG_TQMA35_LVDS_DISPLAY)
+/* TODO: power mode handling is missing */
+	gpio_set_value(TQMA35_MBA35_LVDS_ENA, 1);
+	pr_info("enable TQMA35_MBA35_LVDS_ENA: %d\n", TQMA35_MBA35_LVDS_ENA);
+#endif
 	return 0;
 setup_misc_lvds_ena_fail:
 	gpio_free(gpio + 7);
@@ -612,8 +641,24 @@ setup_misc_in_fail:
 	pr_warning("mba35_misc_gpio_setup failed\n");
 	return ret;
 #else
+	int ret = 0;
+
 	pr_info("mba35_misc_gpio_setup ...\n");
+#if defined(CONFIG_TQMA35_LVDS_DISPLAY)
+	ret = gpio_request(gpio + 7, "MBA35_LVDS_ENA");
+	if (ret) {
+		pr_warning("Cannot open UI expander pin %d\n", 7);
+		goto setup_misc_lvds_ena_fail;
+	}
+	/* LVDS-ENA: pulled down with 4k7k @ LVDS transmitter */
+	gpio_direction_output(TQMA35_MBA35_LVDS_ENA, 0);
+/* TODO: power mode handling is missing */
+	gpio_set_value(TQMA35_MBA35_LVDS_ENA, 1);
+	pr_info("enable TQMA35_MBA35_LVDS_ENA: %d\n", TQMA35_MBA35_LVDS_ENA);
+#endif
 	return 0;
+setup_misc_lvds_ena_fail:
+	return ret;
 #endif
 }
 
@@ -637,7 +682,11 @@ static int mba35_misc_gpio_teardown(struct i2c_client *client,
 
 	return 0;
 #else
-	pr_info("mba35_misc_gpio_teardown ...\n");
+	pr_info("mba35_misc_gpio_setup ...\n");
+#if defined(CONFIG_TQMA35_LVDS_DISPLAY)
+	gpio_set_value(gpio + 7, 0);
+	gpio_free(gpio + 7);
+#endif
 	return 0;
 #endif
 }
