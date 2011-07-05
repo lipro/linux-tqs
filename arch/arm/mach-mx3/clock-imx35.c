@@ -298,7 +298,7 @@ static unsigned long get_rate_ipg_per(struct clk *clk)
 		return get_rate_arm() / ((div1 + 1) * (div2 + 1));
 	} else {
 		div1 = (pdr0 >> 12) & 0x7;
-		return get_rate_ahb(NULL) / div1;
+		return get_rate_ahb(NULL) / (div1 + 1);
 	}
 }
 
