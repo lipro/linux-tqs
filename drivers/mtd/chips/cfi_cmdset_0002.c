@@ -601,7 +601,16 @@ static int get_chip(struct map_info *map, struct flchip *chip, unsigned long adr
 		chip->state = FL_ERASE_SUSPENDING;
 		chip->erase_suspended = 1;
 		for (;;) {
-			if (chip_ready(map, adr))
+			map_word raw_state;
+			unsigned long flash_state;
+			/* ensure no bit is toggling in the sector requested
+			 * and checking for DQ7 = 1 in the sector currently
+			 * erasing this double check prevent false positives if
+			 *  toggle bit logic is defect
+			 */
+			raw_state = map_read(map, chip->in_progress_block_addr);
+			flash_state = MERGESTATUS(raw_state);
+			if (chip_ready(map, adr) && (0x0080 & flash_state))
 				break;
 
 			if (time_after(jiffies, timeo)) {
@@ -1115,14 +1124,14 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip, 
 			continue;
 		}
 
-		if (time_after(jiffies, timeo) && !chip_ready(map, adr)){
+		if (time_after(jiffies, timeo) && !chip_good(map, adr, datum)) {
 			xip_enable(map, chip, adr);
 			printk(KERN_WARNING "MTD %s(): software timeout\n", __func__);
 			xip_disable(map, chip, adr);
 			break;
 		}
 
-		if (chip_ready(map, adr))
+		if (chip_good(map, adr, datum))
 			break;
 
 		/* Latency issues. Drop the lock, wait a while and retry */
@@ -1136,7 +1145,8 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip, 
 
 		if (++retry_cnt <= MAX_WORD_RETRIES)
 			goto retry;
-
+		printk(KERN_WARNING "MTD %s(): !chip_good && retry reached"
+			" -> EIO\n", __func__);
 		ret = -EIO;
 	}
 	xip_enable(map, chip, adr);
@@ -1376,10 +1386,10 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 			continue;
 		}
 
-		if (time_after(jiffies, timeo) && !chip_ready(map, adr))
+		if (time_after(jiffies, timeo) && !chip_good(map, adr, datum))
 			break;
 
-		if (chip_ready(map, adr)) {
+		if (chip_good(map, adr, datum)) {
 			xip_enable(map, chip, adr);
 			goto op_done;
 		}
@@ -1549,14 +1559,14 @@ static int __xipram do_erase_chip(struct map_info *map, struct flchip *chip)
 			chip->erase_suspended = 0;
 		}
 
-		if (chip_ready(map, adr))
-			break;
-
 		if (time_after(jiffies, timeo)) {
 			printk(KERN_WARNING "MTD %s(): software timeout\n",
 				__func__ );
 			break;
 		}
+
+		if (chip_good(map, adr, map_word_ff(map)))
+			break;
 
 		/* Latency issues. Drop the lock, wait a while and retry */
 		UDELAY(map, chip, adr, 1000000/HZ);
@@ -1636,16 +1646,16 @@ static int __xipram do_erase_oneblock(struct map_info *map, struct flchip *chip,
 			timeo = jiffies + (HZ*20); /* FIXME */
 			chip->erase_suspended = 0;
 		}
-
-		if (chip_ready(map, adr)) {
+		if (time_after(jiffies, timeo) &&
+		    !chip_good(map, adr, map_word_ff(map))) {
 			xip_enable(map, chip, adr);
+			printk(KERN_WARNING "MTD %s(): software timeout\n",
+				__func__);
 			break;
 		}
 
-		if (time_after(jiffies, timeo)) {
+		if (chip_good(map, adr, map_word_ff(map))) {
 			xip_enable(map, chip, adr);
-			printk(KERN_WARNING "MTD %s(): software timeout\n",
-				__func__ );
 			break;
 		}
 
