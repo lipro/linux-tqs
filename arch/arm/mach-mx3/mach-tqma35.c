@@ -614,6 +614,15 @@ static struct i2c_board_info tqma35_i2c0_devices[] = {
 		I2C_BOARD_INFO("lm75", 0x49), /* A0=1, A1=0, A2=0 */
 	},
 #endif
+	/*
+	 * TODO: port driver from sound/soc/imx/imx-3stack-sgtl5000.c found in
+	 * sound/soc/imx/imx-3stack-sgtl5000.c see
+	 * http://opensource.freescale.com/git,
+	 * latest is rel_imx_2.6.31_10.09.00
+	 */
+	{
+		I2C_BOARD_INFO("sgtl5000-i2c", 0x0a),
+	},
 #if defined(CONFIG_GPIO_PCA953X)
 	{
 		I2C_BOARD_INFO("pca9554", 0x20), /* A0=0, A1=0, A2=0 */
