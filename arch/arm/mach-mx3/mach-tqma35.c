@@ -48,6 +48,7 @@
 #if defined CONFIG_SPI_IMX || defined CONFIG_SPI_IMX_MODULE
 #include <mach/spi.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/ads7846.h>
 #endif
 #include <mach/iomux-mx35.h>
 #include <mach/ipu.h>
@@ -289,12 +290,90 @@ static struct spi_imx_master tqma35_spi1_master = {
 	.num_chipselect	= ARRAY_SIZE(tqma35_spi1_cs),
 };
 
+#if defined(CONFIG_TOUCHSCREEN_ADS7846) || \
+	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
+
+#define TQMA35_ADS7846_PENDOWN_GPIO1_5 TQMA35_GPIO_ID(1, 5)
+
+static int tqma35_ads7846_get_pendown_state(void);
+
+static struct ads7846_platform_data tqma35_ads7846_config __initdata = {
+	.get_pendown_state	= tqma35_ads7846_get_pendown_state,
+	.keep_vref_on		= 1, /* force vref on between samples */
+	.model			= 7846,
+/* TODO: optimize settling time if needed, check if debouncing is ok */
+	.settle_delay_usecs	= 100, /* double sampling with 100 usec delay */
+/*
+ * simple debouncing filter, ok if rep samples with delta < tol, break if max
+ * samples and not ok
+ */
+	.debounce_max		= 10, /* max samples */
+	.debounce_tol		= 3,/* max AD-Count tolerance between samples */
+	.debounce_rep		= 1,  /* samples within tolerance */
+};
+
+static int tqma35_ads7846_get_pendown_state(void)
+{
+	return !gpio_get_value(TQMA35_ADS7846_PENDOWN_GPIO1_5);
+}
+
+static void tqma35_ads7846_dev_init(struct spi_board_info *board_info,
+				size_t length)
+{
+	unsigned i;
+	if (gpio_request(TQMA35_ADS7846_PENDOWN_GPIO1_5,
+			"ADS7846 pendown") < 0) {
+		printk(KERN_ERR "can't get ads746 pen down GPIO\n");
+		return;
+	}
+	gpio_direction_input(TQMA35_ADS7846_PENDOWN_GPIO1_5);
+	for (i = 0; i < length; ++i) {
+		if (0 == strncmp("ads7846", board_info[i].modalias, 7)) {
+			board_info[i].irq =
+				gpio_to_irq(TQMA35_ADS7846_PENDOWN_GPIO1_5);
+			break;
+		}
+	}
+	if (i >= length) {
+		printk(KERN_ERR "can't find ts spi config for down GPIO\n");
+		return;
+	}
+}
+#endif /* CONFIG_TOUCHSCREEN_ADS7846 */
+
+
+static struct spi_board_info tqma35_spi_board_info[] __initdata = {
+#if defined(CONFIG_TOUCHSCREEN_ADS7846) || \
+	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
+	{
+		.modalias	= "ads7846",
+		.bus_num	= 1,
+		.chip_select	= 0,
+		.max_speed_hz	= 1000000, /* max is appr. 125 kHz * 26 @ 3 V*/
+		.irq		= 0,
+		.platform_data	= &tqma35_ads7846_config,
+		.mode		= SPI_MODE_2,
+	},
+#endif
+};
+
+
 static int tqma35_register_spi(void)
 {
 	mxc_register_device(&mxc_spi_device0, &tqma35_spi0_master);
 	printk(KERN_INFO "cspi1 registered\n");
 	mxc_register_device(&mxc_spi_device1, &tqma35_spi1_master);
 	printk(KERN_INFO "cspi2 registered\n");
+
+#if defined(CONFIG_TOUCHSCREEN_ADS7846) || \
+	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
+	/* call local init, needs to map gpio for irq before loading device */
+	tqma35_ads7846_dev_init(tqma35_spi_board_info,
+		ARRAY_SIZE(tqma35_spi_board_info));
+#endif
+	spi_register_board_info(tqma35_spi_board_info,
+				ARRAY_SIZE(tqma35_spi_board_info));
+
 	return 0;
 }
 #else
@@ -506,6 +585,9 @@ static struct pad_desc tqma35_pads[] = {
 	/* Do GPIO based chip-select */
 	/* MX35_PAD_HCKR__CSPI2_SS0, */
 	MX35_PAD_HCKR__GPIO1_6,
+
+	/* Touch */
+	MX35_PAD_FSR__GPIO1_5,
 };
 
 static struct mxc_usbh_platform_data otg_pdata = {
@@ -658,6 +740,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_uart_device2, &uart2_pdata);
 
 	tqma35_register_spi();
+
 #if defined CONFIG_I2C_IMX || defined CONFIG_I2C_IMX_MODULE
 	tqma35_register_i2c();
 #endif
