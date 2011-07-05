@@ -166,6 +166,42 @@ static const struct fb_videomode fb_modedb[] = {
 		.flag		= 0,
 	},
 #endif
+#if defined(CONFIG_FB_MX3_DISPLAY_EDT480272)
+	{
+		.name		= "EDT480272",
+		.refresh	= 60,
+		.xres		= 480,
+		.yres		= 272,
+		.pixclock	= KHZ2PICOS(9000),
+		.left_margin	= 2,
+		.right_margin	= 2,
+		.upper_margin	= 2,
+		.lower_margin	= 2,
+		.hsync_len	= 41,
+		.vsync_len	= 10,
+		.sync		= FB_SYNC_OE_ACT_HIGH | FB_SYNC_SWAP_RGB,
+		.vmode		= FB_VMODE_NONINTERLACED,
+		.flag		= 0,
+	},
+#endif
+#if defined(CONFIG_FB_MX3_DISPLAY_EVERVGG482270)
+	{
+		.name		= "EVERVGG482270",
+		.refresh	= 60,
+		.xres		= 480,
+		.yres		= 272,
+		.pixclock	= KHZ2PICOS(9000),
+		.left_margin	= 2,
+		.right_margin	= 2,
+		.upper_margin	= 2,
+		.lower_margin	= 2,
+		.hsync_len	= 41,
+		.vsync_len	= 10,
+		.sync		= FB_SYNC_SWAP_RGB,
+		.vmode		= FB_VMODE_NONINTERLACED,
+		.flag		= 0,
+	}
+#endif
 };
 
 static struct mx3fb_platform_data mx3fb_pdata = {
@@ -174,6 +210,10 @@ static struct mx3fb_platform_data mx3fb_pdata = {
 	.name		= "CLAA070LC0ACW",
 #elif defined(CONFIG_FB_MX3_DISPLAY_FG0700K5DSSWBG01)
 	.name           = "FG0700K5DSSWBG01",
+#elif defined(CONFIG_FB_MX3_DISPLAY_EDT480272)
+	.name           = "EDT480272",
+#elif defined(CONFIG_FB_MX3_DISPLAY_EVERVGG482270)
+	.name           = "EVERVGG482270",
 #endif
 	.mode		= fb_modedb,
 	.num_modes	= ARRAY_SIZE(fb_modedb),
@@ -186,6 +226,14 @@ static struct mx3fb_platform_data mx3fb_pdata = {
        .phys_bl_off    = 0,
        .phys_bl_min    = 1,
        .phys_bl_max    = 255,
+#elif defined(CONFIG_FB_MX3_DISPLAY_EDT480272)
+	.phys_bl_off    = 200,
+	.phys_bl_min    = 195,
+	.phys_bl_max    = 0,
+#elif defined(CONFIG_FB_MX3_DISPLAY_EVERVGG482270)
+	.phys_bl_off    = 200,
+	.phys_bl_min    = 195,
+	.phys_bl_max    = 0,
 #endif
 #endif /* CONFIG_FB_MX3_BACKLIGHT */
 };

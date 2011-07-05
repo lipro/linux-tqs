@@ -2222,6 +2222,16 @@ config FB_MX3_DISPLAY_FG0700K5DSSWBG01
         help
           Select this if you have a FG0700K5DSSWBG01 display (7", 800x480).
 
+config FB_MX3_DISPLAY_EDT480272
+        bool "EDT480272"
+        help
+          Select this if you have a EDT480272 display (4.3", 480x272).
+
+config FB_MX3_DISPLAY_EVERVGG482270
+        bool "EVERVGG482270"
+        help
+          Select this if you have a EVERVGG482270 display (4.3", 480x272).
+
 endchoice
 
 config FB_BROADSHEET
