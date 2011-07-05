@@ -25,5 +25,7 @@ extern struct platform_device mxc_spi_device1;
 extern struct platform_device mxc_spi_device2;
 extern struct platform_device imx_ssi_device0;
 extern struct platform_device imx_ssi_device1;
-extern struct platform_device imx_ssi_device1;
+extern struct platform_device mxc_sdhc_device0;
+extern struct platform_device mxc_sdhc_device1;
+extern struct platform_device mxc_sdhc_device2;
 extern struct platform_device imx_wdt_device0;

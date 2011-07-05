@@ -575,6 +575,63 @@ struct platform_device imx_ssi_device1 = {
 	.resource = imx_ssi_resources1,
 };
 
+#ifdef CONFIG_ARCH_MX35
+static struct resource mxc_sdhc_resources0[] = {
+	{
+		.start	= MX35_MMC_SDHC1_BASE_ADDR,
+		.end	= MX35_MMC_SDHC1_BASE_ADDR + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	}, {
+		.start	= MX35_INT_MMC_SDHC1,
+		.end	= MX35_INT_MMC_SDHC1,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device mxc_sdhc_device0 = {
+	.name = "mxsdhci",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(mxc_sdhc_resources0),
+	.resource = mxc_sdhc_resources0,
+};
+static struct resource mxc_sdhc_resources1[] = {
+	{
+		.start	= MX35_MMC_SDHC2_BASE_ADDR,
+		.end	= MX35_MMC_SDHC2_BASE_ADDR + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	}, {
+		.start	= MX35_INT_MMC_SDHC2,
+		.end	= MX35_INT_MMC_SDHC2,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device mxc_sdhc_device1 = {
+	.name = "mxsdhci",
+	.id = 1,
+	.num_resources = ARRAY_SIZE(mxc_sdhc_resources1),
+	.resource = mxc_sdhc_resources1,
+};
+static struct resource mxc_sdhc_resources2[] = {
+	{
+		.start	= MX35_MMC_SDHC3_BASE_ADDR,
+		.end	= MX35_MMC_SDHC3_BASE_ADDR + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	}, {
+		.start	= MX35_INT_MMC_SDHC3,
+		.end	= MX35_INT_MMC_SDHC3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device mxc_sdhc_device2 = {
+	.name = "mxsdhci",
+	.id = 2,
+	.num_resources = ARRAY_SIZE(mxc_sdhc_resources2),
+	.resource = mxc_sdhc_resources2,
+};
+#endif
+
 static struct resource imx_wdt_resources[] = {
 	{
 		.flags = IORESOURCE_MEM,
