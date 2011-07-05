@@ -429,6 +429,27 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
 		cfi->chips[i].word_write_time = 1<<cfi->cfiq->WordWriteTimeoutTyp;
 		cfi->chips[i].buffer_write_time = 1<<cfi->cfiq->BufWriteTimeoutTyp;
 		cfi->chips[i].erase_time = 1<<cfi->cfiq->BlockEraseTimeoutTyp;
+
+		/* FIXME: use also max times, verify if valid */
+		cfi->chips[i].word_write_time_max =
+				(1<<(cfi->cfiq->WordWriteTimeoutTyp)) *
+				(1<<(cfi->cfiq->WordWriteTimeoutMax));
+		cfi->chips[i].buffer_write_time_max =
+				(1<<(cfi->cfiq->BufWriteTimeoutTyp)) *
+				(1<<(cfi->cfiq->BufWriteTimeoutMax));
+		cfi->chips[i].erase_time_max =
+				(1<<(cfi->cfiq->BlockEraseTimeoutTyp)) *
+				(1<<(cfi->cfiq->BlockEraseTimeoutMax));
+
+		printk(KERN_INFO "MTD: %s erase time %u / %u ms\n", __func__,
+			cfi->chips[i].erase_time, cfi->chips[i].erase_time_max);
+		printk(KERN_INFO "MTD: %s word time %u / %u us\n", __func__,
+			cfi->chips[i].word_write_time,
+			cfi->chips[i].word_write_time_max);
+		printk(KERN_INFO "MTD: %s buffer time %u / %u us\n", __func__,
+			cfi->chips[i].buffer_write_time,
+			cfi->chips[i].buffer_write_time_max);
+
 		cfi->chips[i].ref_point_counter = 0;
 		init_waitqueue_head(&(cfi->chips[i].wq));
 	}
