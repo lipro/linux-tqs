@@ -30,6 +30,7 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/i2c/at24.h>
+#include <linux/i2c/pca953x.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/ulpi.h>
 #include <linux/fsl_devices.h>
@@ -92,6 +93,28 @@ extern void mxc_mmc_force_detect(int id);
 #define MMC3_WP TQMA35_GPIO_ID(2, 23)
 
 #define LAN9115_IRQ_GPIO3_3  TQMA35_GPIO_ID(3, 3)
+
+/* GPIO definition for PCA9554 (0x20) at MBa35 */
+#define TQMA35_MBA35_24V_OUTPUT_BASE	100
+#define TQMA35_MBA35_24V_OUTPUT_0	(TQMA35_MBA35_24V_OUTPUT_BASE + 0)
+#define TQMA35_MBA35_24V_OUTPUT_1	(TQMA35_MBA35_24V_OUTPUT_BASE + 1)
+#define TQMA35_MBA35_24V_OUTPUT_2	(TQMA35_MBA35_24V_OUTPUT_BASE + 2)
+#define TQMA35_MBA35_24V_OUTPUT_3	(TQMA35_MBA35_24V_OUTPUT_BASE + 3)
+#define TQMA35_MBA35_24V_OUTPUT_4	(TQMA35_MBA35_24V_OUTPUT_BASE + 4)
+#define TQMA35_MBA35_24V_OUTPUT_5	(TQMA35_MBA35_24V_OUTPUT_BASE + 5)
+#define TQMA35_MBA35_24V_OUTPUT_6	(TQMA35_MBA35_24V_OUTPUT_BASE + 6)
+#define TQMA35_MBA35_24V_OUTPUT_7	(TQMA35_MBA35_24V_OUTPUT_BASE + 7)
+
+/* GPIO definition for PCA9554 (0x21) at MBa35 */
+#define TQMA35_MBA35_MISC_I0_BASE	110
+#define TQMA35_MBA35_24V_INPUT_0	(TQMA35_MBA35_MISC_I0_BASE + 0)
+#define TQMA35_MBA35_24V_INPUT_1	(TQMA35_MBA35_MISC_I0_BASE + 1)
+#define TQMA35_MBA35_24V_INPUT_2	(TQMA35_MBA35_MISC_I0_BASE + 2)
+#define TQMA35_MBA35_24V_INPUT_3	(TQMA35_MBA35_MISC_I0_BASE + 3)
+#define TQMA35_MBA35_USER_LED1		(TQMA35_MBA35_MISC_I0_BASE + 4)
+#define TQMA35_MBA35_USER_LED2		(TQMA35_MBA35_MISC_I0_BASE + 5)
+#define TQMA35_MBA35_BKL_ON		(TQMA35_MBA35_MISC_I0_BASE + 6)
+#define TQMA35_MBA35_LVDS_ENA		(TQMA35_MBA35_MISC_I0_BASE + 7)
 
 /*
  * provide an empty release function, this is needed in case a complex device
@@ -394,7 +417,207 @@ static struct at24_platform_data board_eeprom = {
 	.flags = AT24_FLAG_ADDR16,
 };
 
+/* I2C IO-Expander support for MBa35 */
+#if defined(CONFIG_GPIO_PCA953X)
+
+/* 24V general purpose output @ I2C addr */
+
+static int mba35_24v_output_setup(struct i2c_client *client, unsigned gpio,
+					unsigned ngpio, void *c)
+{
+/*
+ * implement special pin setup handling as needed
+ */
+#if 0
+	int ret;
+	unsigned i;
+	char name[32];
+
+	pr_info("mba35_24v_output_setup ...\n");
+	for (i = 0; i < ngpio; ++i) {
+		sprintf(name, "MBA35_24V_OUT_%u", i);
+		ret = gpio_request(gpio + i, name);
+		if (ret) {
+			pr_warning("Cannot open IO expander pin %d\n", i);
+			goto setup_24v_fail;
+		}
+		/*
+		 * deselect all functionalities, pins are pulled down
+		 * by default
+		 */
+		gpio_direction_output(gpio + i, 0);
+	}
+	return 0;
+setup_24v_fail:
+	for (; i >= 0; --i) {
+		gpio_set_value(gpio + i, 0);
+		gpio_free(gpio + i);
+	}
+	pr_warning("mba35_24v_output_setup failed\n");
+	return ret;
+#else
+	pr_info("mba35_24v_output_setup ...\n");
+	return 0;
+#endif
+}
+
+static int mba35_24v_output_teardown(struct i2c_client *client,
+					unsigned gpio, unsigned ngpio, void *c)
+{
+/*
+ * implement special pin teardown handling as needed
+ */
+#if 0
+	/* deselect all functionalities, pins are pulled down by default */
+	unsigned i;
+
+	pr_info("mba35_24v_output_teardown\n");
+	for (i = 0; i < ngpio; ++i) {
+		gpio_set_value(gpio + i, 0);
+		gpio_free(gpio + i);
+	}
+	return 0;
+#else
+	pr_info("mba35_24v_output_teardown\n");
+	return 0;
+#endif
+}
+
+static struct pca953x_platform_data mba35_24v_output = {
+	/* number of the first GPIO */
+	.gpio_base = TQMA35_MBA35_24V_OUTPUT_BASE,
+
+	/* initial polarity inversion setting */
+	/* uint16_t	invert, */
+	/* interrupt base, irq pin not connected */
+	.irq_base = 0,
+	.context = 0,	/* param to setup/teardown */
+	.setup = mba35_24v_output_setup,
+	.teardown = mba35_24v_output_teardown,
+};
+
+static int mba35_misc_gpio_setup(struct i2c_client *client, unsigned gpio,
+					unsigned ngpio, void *c)
+{
+/*
+ * implement special pin setup handling as needed
+ */
+#if 0
+	int ret;
+	unsigned i;
+	char name[32];
+
+	pr_info("mba35_misc_gpio_setup ...\n");
+	for (i = 0; i < 4; ++i) {
+		sprintf(name, "MBA35_24V_IN_%u", i);
+		ret = gpio_request(gpio + i, name);
+		if (ret) {
+			pr_warning("Cannot open UI expander pin %d\n", i);
+			goto setup_misc_in_fail;
+		}
+		/* deselect all functionalities */
+		gpio_direction_input(gpio + i);
+	}
+	ret = gpio_request(gpio + 4, "MBA35_LED1");
+	if (ret) {
+		pr_warning("Cannot open UI expander pin %d\n", 4);
+		goto setup_misc_led1_fail;
+	}
+	/* user LED 1 off */
+	gpio_direction_output(gpio + 4, 0);
+	ret = gpio_request(gpio + 5, "MBA35_LED2");
+	if (ret) {
+		pr_warning("Cannot open UI expander pin %d\n", 5);
+		goto setup_misc_led2_fail;
+	}
+	/* user LED 2 off */
+	gpio_direction_output(gpio + 5, 0);
+	ret = gpio_request(gpio + 6, "MBA35_BKL_ON");
+	if (ret) {
+		pr_warning("Cannot open UI expander pin %d\n", 6);
+		goto setup_misc_bkl_on_fail;
+	}
+	/* user BKL_ON: pulled down with 100k @ LT3518 */
+	gpio_direction_output(gpio + 6, 0);
+	ret = gpio_request(gpio + 7, "MBA35_LVDS_ENA");
+	if (ret) {
+		pr_warning("Cannot open UI expander pin %d\n", 7);
+		goto setup_misc_lvds_ena_fail;
+	}
+	/* user LVDS-ENA: pulled down with 4k7k @ LVDS transmitter */
+	gpio_direction_output(gpio + 7, 0);
+
+	return 0;
+setup_misc_lvds_ena_fail:
+	gpio_free(gpio + 7);
+setup_misc_bkl_on_fail:
+	gpio_free(gpio + 6);
+setup_misc_led2_fail:
+	gpio_free(gpio + 5);
+setup_misc_led1_fail:
+	gpio_free(gpio + 4);
+setup_misc_in_fail:
+	for (i = 0; i < 4; --i)
+		gpio_free(gpio + i);
+
+	pr_warning("mba35_misc_gpio_setup failed\n");
+	return ret;
+#else
+	pr_info("mba35_misc_gpio_setup ...\n");
+	return 0;
+#endif
+}
+
+
+static int mba35_misc_gpio_teardown(struct i2c_client *client,
+					unsigned gpio, unsigned ngpio, void *c)
+{
+/*
+ * implement special pin teardown handling as needed
+ */
+#if 0
+	/* deselect all functionalities */
+	unsigned i;
+	pr_info("mba35_misc_gpio_teardown\n");
+	for (i = 4; i < 8; ++i) {
+		gpio_set_value(gpio + i, 0);
+		gpio_free(gpio + i);
+	}
+	for (i = 0; i < 4; ++i)
+		gpio_free(gpio + i);
+
+	return 0;
+#else
+	pr_info("mba35_misc_gpio_teardown ...\n");
+	return 0;
+#endif
+}
+
+static struct pca953x_platform_data mba35_misc_gpio = {
+	/* number of the first GPIO */
+	.gpio_base = TQMA35_MBA35_MISC_I0_BASE,
+	/* initial polarity inversion setting */
+	/* uint16_t	invert; */
+	/* interrupt base */
+	.irq_base = 0,
+	.context = 0,	/* param to setup/teardown */
+	.setup = mba35_misc_gpio_setup,
+	.teardown = mba35_misc_gpio_teardown,
+	/* char		**names; */
+};
+#endif
+
 static struct i2c_board_info tqma35_i2c0_devices[] = {
+#if defined(CONFIG_GPIO_PCA953X)
+	{
+		I2C_BOARD_INFO("pca9554", 0x20), /* A0=0, A1=0, A2=0 */
+		.platform_data = &mba35_24v_output,
+	},
+	{
+		I2C_BOARD_INFO("pca9554", 0x21), /* A0=1, A1=0, A2=0 */
+		.platform_data = &mba35_misc_gpio,
+	},
+#endif
 };
 
 static struct imxi2c_platform_data tqma35_i2c1_data = {
