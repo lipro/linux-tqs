@@ -60,6 +60,7 @@
 #include <mach/audmux.h>
 #include <mach/ssi.h>
 #include <mach/mmc.h>
+#include <mach/mxc_flexcan.h>
 
 #include "devices.h"
 
@@ -674,6 +675,44 @@ static struct platform_device *devices[] __initdata = {
 	&mxc_fec_device,
 };
 
+static void flexcan_xcvr_enable(int id, int en)
+{
+	static int pwdn;
+
+	if (id < 0 || id > 1)
+		return;
+
+	if (en) {
+		if (!(pwdn++))
+			;
+			/* TODO: Adapt the power function main board specific
+			pmic_gpio_set_bit_val(MCU_GPIO_REG_GPIO_CONTROL_2,1,0);
+			*/
+	} else {
+		if (!(--pwdn))
+			;
+			/* TODO: Adapt the power function main board specific
+			pmic_gpio_set_bit_val(MCU_GPIO_REG_GPIO_CONTROL_2,1,1);
+			*/
+	}
+}
+
+struct flexcan_platform_data flexcan_data0 = {
+	.xcvr_enable = flexcan_xcvr_enable,
+/* TODO: Adapt the power function main board specific
+	.active = gpio_can_active,
+	.inactive = gpio_can_inactive,
+*/
+};
+
+struct flexcan_platform_data flexcan_data1 = {
+	.xcvr_enable = flexcan_xcvr_enable,
+/* TODO: Adapt the power function main board specific
+	.active = gpio_can_active,
+	.inactive = gpio_can_inactive,
+*/
+};
+
 static struct pad_desc tqma35_pads[] = {
 	/* UART1 */
 	MX35_PAD_TXD1__UART1_TXD_MUX,
@@ -850,6 +889,11 @@ static struct pad_desc tqma35_pads[] = {
 
 	/* Touch */
 	MX35_PAD_FSR__GPIO1_5,
+	/* CAN */
+	MX35_PAD_ATA_DATA7__CAN1_RXCAN,
+	MX35_PAD_ATA_DATA6__CAN1_TXCAN,
+	MX35_PAD_TX4_RX1__CAN2_RXCAN,
+	MX35_PAD_TX5_RX0__CAN2_TXCAN,
 };
 
 static struct mxc_usbh_platform_data otg_pdata = {
@@ -1006,6 +1050,9 @@ static void __init mxc_board_init(void)
 #if defined CONFIG_I2C_IMX || defined CONFIG_I2C_IMX_MODULE
 	tqma35_register_i2c();
 #endif
+
+	mxc_register_device(&flexcan_device0, &flexcan_data0);
+	mxc_register_device(&flexcan_device1, &flexcan_data1);
 
 	/* Request MMC1_CD */
 	gpio_request(MMC1_CD, "MMC1");
