@@ -608,6 +608,12 @@ static struct pca953x_platform_data mba35_misc_gpio = {
 #endif
 
 static struct i2c_board_info tqma35_i2c0_devices[] = {
+#if defined(CONFIG_SENSORS_LM75)
+	/* sensor on base board */
+	{
+		I2C_BOARD_INFO("lm75", 0x49), /* A0=1, A1=0, A2=0 */
+	},
+#endif
 #if defined(CONFIG_GPIO_PCA953X)
 	{
 		I2C_BOARD_INFO("pca9554", 0x20), /* A0=0, A1=0, A2=0 */
