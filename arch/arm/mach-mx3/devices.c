@@ -535,6 +535,46 @@ struct platform_device mxc_fec_device = {
 	.num_resources = ARRAY_SIZE(mxc_fec_resources),
 	.resource = mxc_fec_resources,
 };
+
+static struct resource flexcan0_resources[] = {
+	{
+		.start = MX35_CAN1_BASE_ADDR,
+		.end = MX35_CAN1_BASE_ADDR + 0x97F,
+		.flags = IORESOURCE_MEM
+	}, {
+		.start = MXC_INT_CAN1,
+		.end = MXC_INT_CAN1,
+		.flags = IORESOURCE_IRQ
+	}
+};
+
+static struct resource flexcan1_resources[] = {
+	{
+		.start = MX35_CAN2_BASE_ADDR,
+		.end = MX35_CAN2_BASE_ADDR + 0x97F,
+		.flags = IORESOURCE_MEM
+	}, {
+		.start = MXC_INT_CAN2,
+		.end = MXC_INT_CAN2,
+		.flags = IORESOURCE_IRQ
+	}
+};
+
+struct platform_device flexcan_device0 = {
+	.name = "FlexCAN",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(flexcan0_resources),
+	.resource = flexcan0_resources,
+	/*FIXME.dev = { .release = mxc_nop_release*/
+};
+
+struct platform_device flexcan_device1 = {
+	.name = "FlexCAN",
+	.id = 1,
+	.num_resources = ARRAY_SIZE(flexcan1_resources),
+	.resource = flexcan1_resources,
+};
+
 #endif
 
 static struct resource imx_ssi_resources0[] = {

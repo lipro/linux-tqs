@@ -496,7 +496,7 @@ int __init mx35_clocks_init()
 	/* Turn off all clocks except the ones we need to survive, namely:
 	 * EMI, GPIO1/2/3, GPT, IOMUX, MAX and eventually uart
 	 */
-	__raw_writel((3 << 18), CCM_BASE + CCM_CGR0);
+	__raw_writel((3 << 18) | (3 << 8), CCM_BASE + CCM_CGR0);
 	__raw_writel((3 << 2) | (3 << 4) | (3 << 6) | (3 << 8) | (3 << 16),
 			CCM_BASE + CCM_CGR1);
 	__raw_writel((3 << 26) | ll, CCM_BASE + CCM_CGR2);

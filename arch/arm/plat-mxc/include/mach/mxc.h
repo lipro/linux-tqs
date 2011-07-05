@@ -143,4 +143,5 @@ extern unsigned int __mxc_cpu_type;
 #define cpu_is_mx3()	(cpu_is_mx31() || cpu_is_mx35() || cpu_is_mxc91231())
 #define cpu_is_mx2()	(cpu_is_mx21() || cpu_is_mx27())
 
+
 #endif /*  __ASM_ARCH_MXC_H__ */
