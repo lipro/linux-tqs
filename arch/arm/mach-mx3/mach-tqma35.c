@@ -52,8 +52,11 @@
 #include <mach/ulpi.h>
 #include <mach/audmux.h>
 #include <mach/ssi.h>
+#include <mach/mmc.h>
 
 #include "devices.h"
+
+extern void mxc_mmc_force_detect(int id);
 
 /*
  * GPIO pad index from port and pin
@@ -75,6 +78,13 @@
 #define AC97_GPIO_TXD	TQMA35_GPIO_ID(2, 28)
 #define AC97_GPIO_RESET	TQMA35_GPIO_ID(2,  0)
 
+/* MMC pins */
+#define MMC1_CD TQMA35_GPIO_ID(2, 0)
+#define MMC1_WP TQMA35_GPIO_ID(2, 7)
+
+#define MMC3_CD TQMA35_GPIO_ID(2, 18)
+#define MMC3_WP TQMA35_GPIO_ID(2, 23)
+
 /*
  * provide an empty release function, this is needed in case a complex device
  * loading failed during probe and platform_device_unregister is called
@@ -84,6 +94,7 @@ static void tqma35_dummy_release(struct device *dev)
 }
 
 #if defined(CONFIG_FB_MX3)
+
 static const struct fb_videomode fb_modedb[] = {
 #if defined(CONFIG_FB_MX3_DISPLAY_CLAA070LC0ACW)
 	{
@@ -334,6 +345,34 @@ static struct pad_desc tqma35_pads[] = {
 	MX35_PAD_STXD4__AUDMUX_AUD4_TXD,
 	MX35_PAD_SRXD4__AUDMUX_AUD4_RXD,
 	MX35_PAD_SCK4__AUDMUX_AUD4_TXC,
+	/* ESDHC1 */
+	MX35_PAD_SD1_CMD__ESDHC1_CMD,
+	MX35_PAD_SD1_CLK__ESDHC1_CLK,
+	MX35_PAD_SD1_DATA0__ESDHC1_DAT0,
+	MX35_PAD_SD1_DATA1__ESDHC1_DAT1,
+	MX35_PAD_SD1_DATA2__ESDHC1_DAT2,
+	MX35_PAD_SD1_DATA3__ESDHC1_DAT3,
+	/* ESDHC1 CD */
+	MX35_PAD_GPIO2_0__GPIO2_0,
+	/* ESDHC1 WP */
+	MX35_PAD_ATA_CS1__GPIO2_7,
+
+	/* ESDHC3 */
+	MX35_PAD_ATA_DATA4__ESDHC3_CMD,
+	MX35_PAD_ATA_DATA3__ESDHC3_CLK,
+	MX35_PAD_ATA_DIOR__ESDHC3_DAT0,
+	MX35_PAD_ATA_DIOW__ESDHC3_DAT1,
+	MX35_PAD_ATA_DMACK__ESDHC3_DAT2,
+	MX35_PAD_ATA_RESET_B__ESDHC3_DAT3,
+	MX35_PAD_ATA_IORDY__ESDHC3_DAT4,
+	MX35_PAD_ATA_DATA0__ESDHC3_DAT5,
+	MX35_PAD_ATA_DATA1__ESDHC3_DAT6,
+	MX35_PAD_ATA_DATA2__ESDHC3_DAT7,
+
+	/* ESDHC3 CD */
+	MX35_PAD_ATA_DATA5__GPIO2_18,
+	/* ESDHC3 WP */
+	MX35_PAD_NFRB__GPIO2_23,
 };
 
 static struct mxc_usbh_platform_data otg_pdata = {
@@ -394,6 +433,65 @@ static int __init tqma35_otg_mode(char *options)
 }
 __setup("otg_mode=", tqma35_otg_mode);
 
+unsigned int tqma35_mmc_cd_status(struct device *dev)
+{
+	struct platform_device *mxcsdhc_device = to_platform_device(dev);
+
+	switch (mxcsdhc_device->id) {
+	case 0:
+		return gpio_get_value(MMC1_CD);
+	case 2:
+		/* eMMC is always present */
+		return 0;
+		/* return gpio_get_value(MMC3_CD);*/
+	default :
+		return 0;
+	}
+}
+
+int tqma35_mmc_wp_status(struct device *dev)
+{
+	struct platform_device *mxcsdhc_device = to_platform_device(dev);
+
+	if (mxcsdhc_device->id == 1)
+		return gpio_get_value(MMC1_WP);
+
+	return 0;
+}
+
+
+static struct mxc_mmc_platform_data tqma35_mmc1_pdata = {
+	.ocr_mask = MMC_VDD_32_33,
+	.caps = MMC_CAP_4_BIT_DATA | MMC_CAP_NEEDS_POLL,
+	.min_clk = 150000,
+	.max_clk = 52000000,
+	.card_fixed = 0,
+	.card_inserted_state = 0,
+	.status = tqma35_mmc_cd_status,
+	.wp_status = tqma35_mmc_wp_status,
+	.clock_mmc = "sdhc",
+};
+
+static struct mxc_mmc_platform_data tqma35_mmc2_pdata = {
+	.ocr_mask = MMC_VDD_32_33,
+	.caps = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.min_clk = 400000,
+	.max_clk = 52000000,
+	.card_fixed = 1,
+	.card_inserted_state = 0,
+	.status = tqma35_mmc_cd_status,
+	.clock_mmc = "sdhc",
+};
+
+static int __init mxc_late_init_mmc(void)
+{
+	/* force detection of the fixed eMMC */
+/*	mxc_mmc_force_detect(2); */
+	return 0;
+}
+
+late_initcall(mxc_late_init_mmc);
+
 /*
  * Board specific initialization.
  */
@@ -424,6 +522,22 @@ static void __init mxc_board_init(void)
 
 #if defined CONFIG_I2C_IMX || defined CONFIG_I2C_IMX_MODULE
 	tqma35_register_i2c();
+#endif
+
+	/* Request MMC1_CD */
+	gpio_request(MMC1_CD, "MMC1");
+	/* Request MMC1_WP */
+	gpio_request(MMC1_WP, "MMC1");
+	tqma35_mmc1_pdata.detect_irq = gpio_to_irq(MMC1_CD);
+	mxc_register_device(&mxc_sdhc_device0, &tqma35_mmc1_pdata);
+
+#if 0
+	/* Request MMC3_CD */
+	gpio_request(MMC3_CD, "MMC3");
+	/* Request MMC3_WP */
+	gpio_request(MMC3_WP, "MMC3");
+	tqma35_mmc2_pdata.detect_irq = gpio_to_irq(MMC3_CD);
+	mxc_register_device(&mxc_sdhc_device2, &tqma35_mmc2_pdata);
 #endif
 
 	mxc_register_device(&mx3_ipu, &mx3_ipu_data);
