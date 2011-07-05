@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2010
+ * Markus Niebel, TQ Systems <markus.niebel@tq-group.com>
+ *
  * Copyright (C) 2008
  * Guennadi Liakhovetski, DENX Software Engineering, <lg@denx.de>
  *
@@ -35,6 +38,7 @@
 #include <asm/uaccess.h>
 
 #define MX3FB_NAME		"mx3_sdc_fb"
+#define MX3BL_NAME		"mx3_sdc_bl"
 
 #define MX3FB_REG_OFFSET	0xB4
 
@@ -237,7 +241,9 @@ static const struct fb_videomode mx3fb_modedb[] = {
 
 struct mx3fb_data {
 	struct fb_info		*fbi;
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 	int			backlight_level;
+#endif
 	void __iomem		*reg_base;
 	spinlock_t		lock;
 	struct device		*dev;
@@ -292,6 +298,144 @@ static const uint32_t di_mappings[] = {
 	0x0011000F, 0x000B000F, 0x0005000F, 1,	/* BGR666 */
 	0x0004003F, 0x000A000F, 0x000F003F, 1	/* RGB565 */
 };
+
+/*
+ * Backlight control
+ */
+#if defined(CONFIG_FB_MX3_BACKLIGHT)
+
+static void sdc_set_brightness(struct mx3fb_data *mx3fb, uint8_t value);
+
+static int mx3fb_bl_get_level_brightness(struct mx3fb_data *fb_data, int level)
+{
+	struct device *dev = fb_data->dev;
+	struct mx3fb_platform_data *mx3fb_pdata = dev->platform_data;
+	struct fb_info *info = fb_data->fbi;
+	int nlevel;
+
+	/* Get and convert the value */
+	/* No locking on bl_curve since accessing a single value */
+	nlevel = info->bl_curve[level];
+
+	if (nlevel != mx3fb_pdata->phys_bl_off) {
+		int minv = min(mx3fb_pdata->phys_bl_min,
+				mx3fb_pdata->phys_bl_max);
+		int maxv = max(mx3fb_pdata->phys_bl_min,
+				mx3fb_pdata->phys_bl_max);
+		if (nlevel < minv)
+			nlevel = minv;
+		else if (nlevel > maxv)
+			nlevel = maxv;
+	}
+	return nlevel;
+}
+
+static int mx3fb_bl_update_status(struct backlight_device *bd)
+{
+	struct mx3fb_data *fb_data = bl_get_data(bd);
+	int level;
+	uint8_t regval = 0;
+
+	if (bd->props.power != FB_BLANK_UNBLANK ||
+	bd->props.fb_blank != FB_BLANK_UNBLANK) {
+		level = 0;
+	} else {
+		level = bd->props.brightness;
+	}
+
+	if (level >= 0)
+		regval = mx3fb_bl_get_level_brightness(fb_data, level);
+
+	sdc_set_brightness(fb_data, regval);
+
+	return 0;
+}
+
+static int mx3fb_bl_get_brightness(struct backlight_device *bd)
+{
+	int result = bd->props.brightness;
+	if ((bd->props.power != FB_BLANK_UNBLANK) ||
+		(bd->props.fb_blank != FB_BLANK_UNBLANK)) {
+		result = 0;
+	}
+	return result;
+}
+
+static struct backlight_ops mx3fb_bl_ops = {
+	.get_brightness = mx3fb_bl_get_brightness,
+	.update_status  = mx3fb_bl_update_status,
+};
+
+static void mx3fb_bl_init(struct mx3fb_data *fb_data)
+{
+	struct device *dev = fb_data->dev;
+	struct mx3fb_platform_data *mx3fb_pdata = dev->platform_data;
+	struct backlight_properties props;
+	struct fb_info *info = fb_data->fbi;
+	struct backlight_device *bd;
+	char name[12];
+
+	snprintf(name, sizeof(name), MX3BL_NAME"%d", info->node);
+
+	memset(&props, 0, sizeof(struct backlight_properties));
+	props.max_brightness = FB_BACKLIGHT_LEVELS - 1;
+	bd = backlight_device_register(name, info->dev, fb_data, &mx3fb_bl_ops,
+					&props);
+	if (IS_ERR(bd)) {
+		info->bl_dev = NULL;
+		printk(KERN_WARNING MX3FB_NAME ": bl registration failed\n");
+		goto error;
+	}
+
+	info->bl_dev = bd;
+	/* TODO: cleaner platform data to local data conversion */
+	if (mx3fb_pdata->phys_bl_max > mx3fb_pdata->phys_bl_min) {
+		fb_bl_default_curve(info, mx3fb_pdata->phys_bl_off,
+				mx3fb_pdata->phys_bl_min,
+				mx3fb_pdata->phys_bl_max);
+	} else {
+		int i, flat, count;
+		int range = ((int)mx3fb_pdata->phys_bl_max -
+			(int)mx3fb_pdata->phys_bl_min);
+		u8 v;
+		mutex_lock(&info->bl_curve_mutex);
+
+		info->bl_curve[0] = mx3fb_pdata->phys_bl_off;
+		for (flat = 1; flat < (FB_BACKLIGHT_LEVELS / 16); ++flat)
+			info->bl_curve[flat] = mx3fb_pdata->phys_bl_min;
+
+		count = FB_BACKLIGHT_LEVELS * 15 / 16;
+		for (i = 0; i < count; ++i) {
+			v = (u8)((int)mx3fb_pdata->phys_bl_min +
+				(range * (i + 1) / count));
+			info->bl_curve[flat + i] = v;
+		}
+		mutex_unlock(&info->bl_curve_mutex);
+	}
+
+	bd->props.brightness = bd->props.max_brightness;
+	bd->props.power = FB_BLANK_UNBLANK;
+	backlight_update_status(bd);
+
+	printk(MX3FB_NAME ": Backlight initialized (%s)\n", name);
+
+	return;
+
+error:
+	return;
+}
+
+static void mx3fb_bl_exit(struct fb_info *info)
+{
+	struct backlight_device *bd = info->bl_dev;
+
+	backlight_device_unregister(bd);
+}
+#else
+static inline void mx3fb_bl_init(struct mx3fb_data *par) {}
+static inline void mx3fb_bl_exit(struct fb_info *info) {}
+#endif /* CONFIG_FB_MX3_BACKLIGHT */
+
 
 static void sdc_fb_init(struct mx3fb_info *fbi)
 {
@@ -983,8 +1127,9 @@ static int mx3fb_setcolreg(unsigned int regno, unsigned int red,
 static void __blank(int blank, struct fb_info *fbi)
 {
 	struct mx3fb_info *mx3_fbi = fbi->par;
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 	struct mx3fb_data *mx3fb = mx3_fbi->mx3fb;
-
+#endif
 	mx3_fbi->blank = blank;
 
 	switch (blank) {
@@ -992,7 +1137,9 @@ static void __blank(int blank, struct fb_info *fbi)
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_NORMAL:
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 		sdc_set_brightness(mx3fb, 0);
+#endif
 		memset((char *)fbi->screen_base, 0, fbi->fix.smem_len);
 		/* Give LCD time to update - enough for 50 and 60 Hz */
 		msleep(25);
@@ -1000,7 +1147,9 @@ static void __blank(int blank, struct fb_info *fbi)
 		break;
 	case FB_BLANK_UNBLANK:
 		sdc_enable_channel(mx3_fbi);
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 		sdc_set_brightness(mx3fb, mx3fb->backlight_level);
+#endif
 		break;
 	}
 }
@@ -1181,8 +1330,9 @@ static int mx3fb_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if (mx3_fbi->blank == FB_BLANK_UNBLANK) {
 		sdc_disable_channel(mx3_fbi);
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 		sdc_set_brightness(mx3fb, 0);
-
+#endif
 	}
 	return 0;
 }
@@ -1197,7 +1347,9 @@ static int mx3fb_resume(struct platform_device *pdev)
 
 	if (mx3_fbi->blank == FB_BLANK_UNBLANK) {
 		sdc_enable_channel(mx3_fbi);
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 		sdc_set_brightness(mx3fb, mx3fb->backlight_level);
+#endif
 	}
 
 	acquire_console_sem();
@@ -1377,7 +1529,9 @@ static int init_fb_chan(struct mx3fb_data *mx3fb, struct idmac_channel *ichan)
 	mx3fb_write_reg(mx3fb, 0x00100010L, DI_HSP_CLK_PER);
 	/* Might need to trigger HSP clock change - see 44.3.3.8.5 */
 
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
 	sdc_set_brightness(mx3fb, 255);
+#endif
 	sdc_set_global_alpha(mx3fb, true, 0xFF);
 	sdc_set_color_key(mx3fb, IDMAC_SDC_0, false, 0);
 
@@ -1489,13 +1643,16 @@ static int mx3fb_probe(struct platform_device *pdev)
 		ret = -EBUSY;
 		goto ersdc0;
 	}
-
-	mx3fb->backlight_level = 255;
-
+#if !defined(CONFIG_FB_MX3_BACKLIGHT)
+	mx3fb->backlight_level = 128;
+#endif
 	ret = init_fb_chan(mx3fb, to_idmac_chan(chan));
 	if (ret < 0)
 		goto eisdc0;
 
+#if defined(CONFIG_FB_MX3_BACKLIGHT)
+	mx3fb_bl_init(mx3fb);
+#endif
 	return 0;
 
 eisdc0:
@@ -1516,6 +1673,9 @@ static int mx3fb_remove(struct platform_device *dev)
 	struct mx3fb_info *mx3_fbi = fbi->par;
 	struct dma_chan *chan;
 
+#if defined(CONFIG_FB_MX3_BACKLIGHT)
+	mx3fb_bl_exit(fbi);
+#endif
 	chan = &mx3_fbi->idmac_channel->dma_chan;
 	release_fbi(fbi);
 

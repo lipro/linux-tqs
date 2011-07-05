@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2008
  * Guennadi Liakhovetski, DENX Software Engineering, <lg@denx.de>
+ * Copyright (C) 2010
+ * Markus Niebel, TQ Systems GmbH, <lg@denx.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,12 +29,20 @@
  *
  * @dma_dev:	pointer to the dma-device, used for dma-slave connection
  * @mode:	pointer to a platform-provided per mxc_register_fb() videomode
+ * @phys_bl_off	backlight pwm register value for backlight off
+ * @phys_bl_min	backlight pwm register value for min brightness
+ * @phys_bl_max	backlight pwm register value for max brightness
  */
 struct mx3fb_platform_data {
 	struct device			*dma_dev;
 	const char			*name;
 	const struct fb_videomode	*mode;
 	int				num_modes;
+#if defined(CONFIG_FB_MX3_BACKLIGHT)
+	u8				phys_bl_off;
+	u8				phys_bl_min;
+	u8				phys_bl_max;
+#endif
 };
 
 #endif
