@@ -1074,20 +1074,18 @@ static int cfi_amdstd_secsi_read (struct mtd_info *mtd, loff_t from, size_t len,
 static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip, unsigned long adr, map_word datum)
 {
 	struct cfi_private *cfi = map->fldrv_priv;
-	unsigned long timeo = jiffies + HZ;
-	/*
-	 * We use a 1ms + 1 jiffies generic timeout for writes (most devices
-	 * have a max write time of a few hundreds usec). However, we should
-	 * use the maximum timeout value given by the chip at probe time
-	 * instead.  Unfortunately, struct flchip does have a field for
-	 * maximum timeout, only for typical which can be far too short
-	 * depending of the conditions.	 The ' + 1' is to avoid having a
-	 * timeout of 0 jiffies if HZ is smaller than 1000.
+	unsigned long timeo;
+
+	/* use the max timeout read from cfi, increase by on to make sure it's
+	 * not zero
 	 */
-	unsigned long uWriteTimeout = ( HZ / 1000 ) + 1;
+	unsigned long write_timeout;
+
 	int ret = 0;
 	map_word oldd;
 	int retry_cnt = 0;
+
+	write_timeout = usecs_to_jiffies(chip->word_write_time_max) + 1;
 
 	adr += chip->start;
 
@@ -1129,7 +1127,7 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip, 
 				chip->word_write_time);
 
 	/* See comment above for timeout value. */
-	timeo = jiffies + uWriteTimeout;
+	timeo = jiffies + write_timeout;
 	for (;;) {
 		if (chip->state != FL_WRITING) {
 			/* Someone's suspended the write. Sleep */
@@ -1140,7 +1138,7 @@ static int __xipram do_write_oneword(struct map_info *map, struct flchip *chip, 
 			spin_unlock(chip->mutex);
 			schedule();
 			remove_wait_queue(&chip->wq, &wait);
-			timeo = jiffies + (HZ / 2); /* FIXME */
+			timeo = jiffies + write_timeout;
 			spin_lock(chip->mutex);
 			continue;
 		}
@@ -1330,13 +1328,15 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 				    int len)
 {
 	struct cfi_private *cfi = map->fldrv_priv;
-	unsigned long timeo = jiffies + HZ;
-	/* see comments in do_write_oneword() regarding uWriteTimeo. */
-	unsigned long uWriteTimeout = ( HZ / 1000 ) + 1;
+	unsigned long timeo;
+	/* see comments in do_write_oneword() regarding write_timeout. */
+	unsigned long write_timeout;
 	int ret = -EIO;
 	unsigned long cmd_adr;
 	int z, words;
 	map_word datum;
+
+	write_timeout = usecs_to_jiffies(chip->buffer_write_time_max) + 1;
 
 	adr += chip->start;
 	cmd_adr = adr;
@@ -1388,9 +1388,9 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 
 	INVALIDATE_CACHE_UDELAY(map, chip,
 				adr, map_bankwidth(map),
-				chip->word_write_time);
+				chip->buffer_write_time);
 
-	timeo = jiffies + uWriteTimeout;
+	timeo = jiffies + write_timeout;
 
 	for (;;) {
 		if (chip->state != FL_WRITING) {
@@ -1402,7 +1402,7 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 			spin_unlock(chip->mutex);
 			schedule();
 			remove_wait_queue(&chip->wq, &wait);
-			timeo = jiffies + (HZ / 2); /* FIXME */
+			timeo = jiffies + write_timeout;
 			spin_lock(chip->mutex);
 			continue;
 		}
@@ -1524,7 +1524,8 @@ static int cfi_amdstd_write_buffers(struct mtd_info *mtd, loff_t to, size_t len,
 static int __xipram do_erase_chip(struct map_info *map, struct flchip *chip)
 {
 	struct cfi_private *cfi = map->fldrv_priv;
-	unsigned long timeo = jiffies + HZ;
+	unsigned long wait_time = msecs_to_jiffies(chip->erase_time_max) + 1;
+	unsigned long timeo;
 	unsigned long int adr;
 	DECLARE_WAITQUEUE(wait, current);
 	int ret = 0;
@@ -1560,7 +1561,7 @@ static int __xipram do_erase_chip(struct map_info *map, struct flchip *chip)
 				adr, map->size,
 				chip->erase_time*500);
 
-	timeo = jiffies + (HZ*20);
+	timeo = jiffies + wait_time;
 
 	for (;;) {
 		if (chip->state != FL_ERASING) {
@@ -1576,7 +1577,7 @@ static int __xipram do_erase_chip(struct map_info *map, struct flchip *chip)
 		if (chip->erase_suspended) {
 			/* This erase was suspended and resumed.
 			   Adjust the timeout */
-			timeo = jiffies + (HZ*20); /* FIXME */
+			timeo = jiffies + wait_time;
 			chip->erase_suspended = 0;
 		}
 
@@ -1613,7 +1614,8 @@ static int __xipram do_erase_chip(struct map_info *map, struct flchip *chip)
 static int __xipram do_erase_oneblock(struct map_info *map, struct flchip *chip, unsigned long adr, int len, void *thunk)
 {
 	struct cfi_private *cfi = map->fldrv_priv;
-	unsigned long timeo = jiffies + HZ;
+	unsigned long timeo;
+	unsigned long wait_time = msecs_to_jiffies(chip->erase_time_max) + 1;
 	DECLARE_WAITQUEUE(wait, current);
 	int ret = 0;
 
@@ -1644,11 +1646,15 @@ static int __xipram do_erase_oneblock(struct map_info *map, struct flchip *chip,
 	chip->erase_suspended = 0;
 	chip->in_progress_block_addr = adr;
 
+	/*
+	 * FIXME: erase time is in msec, so timeout is half of the typical
+	 * erase time?
+	*/
 	INVALIDATE_CACHE_UDELAY(map, chip,
 				adr, len,
 				chip->erase_time*500);
 
-	timeo = jiffies + (HZ*20);
+	timeo = jiffies + wait_time;
 
 	for (;;) {
 		if (chip->state != FL_ERASING) {
@@ -1664,7 +1670,7 @@ static int __xipram do_erase_oneblock(struct map_info *map, struct flchip *chip,
 		if (chip->erase_suspended) {
 			/* This erase was suspended and resumed.
 			   Adjust the timeout */
-			timeo = jiffies + (HZ*20); /* FIXME */
+			timeo = jiffies + wait_time;
 			chip->erase_suspended = 0;
 		}
 		if (time_after(jiffies, timeo) &&
