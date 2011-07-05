@@ -84,6 +84,19 @@ static struct mtd_chip_driver cfi_amdstd_chipdrv = {
 
 /* #define DEBUG_CFI_FEATURES */
 
+/*
+ * check for numonyx / micron M29EW
+ * see AN309814 Patching the Linux Kernel for M29 Flash Application Note
+ * Rev. D 10/10 EN
+ */
+static inline int is_nmx_M29EW(const struct cfi_private *cfi)
+{
+	return ((cfi->mfr == CFI_MFR_NMX) &&
+			(((cfi->device_type == CFI_DEVICETYPE_X8) &&
+			((cfi->id & 0xff) == 0x7e)) ||
+			((cfi->device_type == CFI_DEVICETYPE_X16) &&
+			(cfi->id == 0x227e))));
+}
 
 #ifdef DEBUG_CFI_FEATURES
 static void cfi_tell_features(struct cfi_pri_amdstd *extp)
@@ -640,6 +653,18 @@ static int get_chip(struct map_info *map, struct flchip *chip, unsigned long adr
 				 * there was an error (so leave the erase
 				 * routine to recover from it) or we trying to
 				 * use the erase-in-progress sector. */
+
+				/* before resume, insert a dummy 0xF0 cycle for
+				 * Micron M29EW devices see
+				 * AN309814 Patching the Linux Kernel for M29
+				 * Flash Application Note - Rev. D 10/10 EN
+				 */
+				if (is_nmx_M29EW(cfi)) {
+					map_write(map, CMD(0xF0),
+						chip->in_progress_block_addr);
+					/* printk(KERN_ERR "MTD %s(): dummy"
+					"cycle for numonyx\n", __func__); */
+				}
 				map_write(map, CMD(0x30), chip->in_progress_block_addr);
 				chip->state = FL_ERASING;
 				chip->oldstate = FL_READY;
@@ -689,7 +714,23 @@ static void put_chip(struct map_info *map, struct flchip *chip, unsigned long ad
 	switch(chip->oldstate) {
 	case FL_ERASING:
 		chip->state = chip->oldstate;
-		map_write(map, CMD(0x30), chip->in_progress_block_addr);
+		if (is_nmx_M29EW(cfi)) {
+			/* before resume, insert a dummy 0xF0 cycle for Micron
+			 * M29EW devices see AN309814 Patching the Linux Kernel
+			 * for M29 Flash Application Note - Rev. D 10/10 EN
+			 */
+			map_write(map, CMD(0xF0), chip->in_progress_block_addr);
+			map_write(map, CMD(0x30), chip->in_progress_block_addr);
+			/* add wait cycle to resolve Resolving the Delay After
+			 * Resume Issue see AN309814 Patching the Linux Kernel
+			 * for M29 Flash Application Note - Rev. D 10/10 EN
+			 * and M29EW datasheet, Table 28, Programming and erase
+			 * Performance Erase to Suspend
+			 */
+			udelay(500);
+		} else {
+			map_write(map, CMD(0x30), chip->in_progress_block_addr);
+		}
 		chip->oldstate = FL_READY;
 		chip->state = FL_ERASING;
 		break;
@@ -832,6 +873,15 @@ static void __xipram xip_udelay(struct map_info *map, struct flchip *chip,
 			local_irq_disable();
 
 			/* Resume the write or erase operation */
+			/* before resume, insert a dummy 0xF0 cycle for Micron M29EW
+			 * devices, see
+			 * AN309814 Patching the Linux Kernel for M29 Flash Application Note - Rev. D 10/10 EN
+			 */
+			if (is_nmx_M29EW(cfi)) {
+				map_write(map, CMD(0xF0), adr);
+				/* printk(KERN_ERR "MTD: %s() dummy cycle for "
+					"numonyx!\n", chip->oldstate); */
+			}
 			map_write(map, CMD(0x30), adr);
 			chip->state = oldstate;
 			start = xip_currtime();
@@ -1645,6 +1695,14 @@ static int __xipram do_erase_oneblock(struct map_info *map, struct flchip *chip,
 	chip->state = FL_ERASING;
 	chip->erase_suspended = 0;
 	chip->in_progress_block_addr = adr;
+	if (is_nmx_M29EW(cfi)) {
+		/* add wait cycle to resolve Resolving the Delay After Resume
+		 * Issue see AN309814 Patching the Linux Kernel for M29 Flash
+		 * Application Note - Rev. D 10/10 EN and M29EW datasheet,
+		 * Table 28, Programming and erase Performance Erase to Suspend
+		 */
+		udelay(500);
+	}
 
 	/*
 	 * FIXME: erase time is in msec, so timeout is half of the typical
