@@ -294,8 +294,8 @@ static void mx3fb_write_reg(struct mx3fb_data *mx3fb, u32 value, unsigned long r
 
 static const uint32_t di_mappings[] = {
 	0x1600AAAA, 0x00E05555, 0x00070000, 3,	/* RGB888 */
-	0x0005000F, 0x000B000F, 0x0011000F, 1,	/* RGB666 */
-	0x0011000F, 0x000B000F, 0x0005000F, 1,	/* BGR666 */
+	0x00050000, 0x000D0000, 0x00150000, 1,	/* RGB666 TQMa35 */
+	0x00070000, 0x000F0000, 0x00170000, 1,	/* BGR666 TQMa35 */
 	0x0004003F, 0x000A000F, 0x000F003F, 1	/* RGB565 */
 };
 
@@ -640,7 +640,11 @@ static int sdc_init_panel(struct mx3fb_data *mx3fb, enum ipu_panel panel,
 	 */
 	ipu_clk = clk_get(mx3fb->dev, NULL);
 	if (!IS_ERR(ipu_clk)) {
-		div = clk_get_rate(ipu_clk) * 16 / pixel_clk;
+		/*
+		 * For i.MX35 we have no get_rate function for ipu_clk,
+		 * so we use the HSP_CLK of 133MHz
+		 */
+		div = 133000000 * 16 / pixel_clk;
 		clk_put(ipu_clk);
 	} else {
 		div = 0;
@@ -1687,6 +1691,22 @@ static int mx3fb_remove(struct platform_device *dev)
 	return 0;
 }
 
+#if defined(CONFIG_FB_MX3_BACKLIGHT)
+static void mx3fb_shutdown(struct platform_device *dev)
+{
+	struct mx3fb_data *mx3fb = platform_get_drvdata(dev);
+	struct fb_info *fbi = mx3fb->fbi;
+	struct mx3fb_info *mx3_fbi = fbi->par;
+
+	printk(MX3FB_NAME ": shutdown");
+	memset((char *)fbi->screen_base, 0, fbi->fix.smem_len);
+	/* Give LCD time to update - enough for 50 and 60 Hz */
+	msleep(25);
+	sdc_disable_channel(mx3_fbi);
+	mx3fb_bl_exit(fbi);
+}
+#endif
+
 static struct platform_driver mx3fb_driver = {
 	.driver = {
 		   .name = MX3FB_NAME,
@@ -1695,6 +1715,9 @@ static struct platform_driver mx3fb_driver = {
 	.remove = mx3fb_remove,
 	.suspend = mx3fb_suspend,
 	.resume = mx3fb_resume,
+#if defined(CONFIG_FB_MX3_BACKLIGHT)
+	.shutdown = mx3fb_shutdown
+#endif
 };
 
 /*
