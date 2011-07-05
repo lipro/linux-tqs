@@ -25,6 +25,7 @@
 #include <linux/mtd/plat-ram.h>
 #include <linux/memory.h>
 #include <linux/gpio.h>
+#include <linux/smsc911x.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -88,6 +89,8 @@ extern void mxc_mmc_force_detect(int id);
 
 #define MMC3_CD TQMA35_GPIO_ID(2, 18)
 #define MMC3_WP TQMA35_GPIO_ID(2, 23)
+
+#define LAN9115_IRQ_GPIO3_3  TQMA35_GPIO_ID(3, 3)
 
 /*
  * provide an empty release function, this is needed in case a complex device
@@ -199,6 +202,58 @@ static struct imxuart_platform_data uart1_pdata = {
 static struct imxuart_platform_data uart2_pdata = {
 	.flags = IMXUART_HAVE_RTSCTS,
 };
+
+#if defined(CONFIG_SMSC911X)
+/*
+ * SMSC 9115
+ * Network support
+ */
+static struct resource tqma35_smc911x_resources[] = {
+	{
+		.start	= MX35_CS1_BASE_ADDR,
+		.end	= MX35_CS1_BASE_ADDR + SZ_32M - 1,
+		.flags	= IORESOURCE_MEM,
+	}, {
+		.start	= (MXC_BOARD_IRQ_START + LAN9115_IRQ_GPIO3_3),
+		.end	= (MXC_BOARD_IRQ_START + LAN9115_IRQ_GPIO3_3),
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
+	},
+};
+
+static struct smsc911x_platform_config smsc911x_info = {
+	.flags		= SMSC911X_USE_16BIT | SMSC911X_SAVE_MAC_ADDRESS,
+	.irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+	.irq_type       = SMSC911X_IRQ_TYPE_PUSH_PULL,
+};
+
+static struct platform_device tqma35_smc911x_device = {
+	.name           = "smsc911x",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(tqma35_smc911x_resources),
+	.resource       = tqma35_smc911x_resources,
+	.dev            = {
+		.platform_data = &smsc911x_info,
+		.release = tqma35_dummy_release,
+	},
+};
+
+static int tqma35_register_smsc9115(void)
+{
+	/* SMSC9115 IRQ pin */
+	/* must be done befor registerimg the device */
+	if (0 == gpio_request(LAN9115_IRQ_GPIO3_3, "LAN9115_IRQ")) {
+		gpio_direction_input(LAN9115_IRQ_GPIO3_3);
+		tqma35_smc911x_resources[1].start =
+			gpio_to_irq(LAN9115_IRQ_GPIO3_3);
+		tqma35_smc911x_resources[1].end =
+			gpio_to_irq(LAN9115_IRQ_GPIO3_3);
+		platform_device_register(&tqma35_smc911x_device);
+		return 0;
+	}
+	pr_err("gpio_request for LAN9115_IRQ_GPIO3_3 failed\n");
+	return -1;
+}
+#endif
 
 #if defined CONFIG_SPI_IMX || defined CONFIG_SPI_IMX_MODULE
 
@@ -316,6 +371,8 @@ static struct pad_desc tqma35_pads[] = {
 	MX35_PAD_ATA_DATA8__UART3_RTS,
 	MX35_PAD_ATA_DATA11__UART3_TXD_MUX,
 	MX35_PAD_ATA_DATA10__UART3_RXD_MUX,
+	/* LAN9115_IRQ */
+	MX35_PAD_MLB_CLK__GPIO3_3,
 	/* FEC */
 	MX35_PAD_FEC_TX_CLK__FEC_TX_CLK,
 	MX35_PAD_FEC_RX_CLK__FEC_RX_CLK,
@@ -587,6 +644,10 @@ static void __init mxc_board_init(void)
 			MXC_AUDMUX_V2_PTCR_TCSEL(3) |
 			MXC_AUDMUX_V2_PTCR_TCLKDIR, /* clock is output */
 			MXC_AUDMUX_V2_PDCR_RXDSEL(3));
+
+#if defined(CONFIG_SMSC911X)
+	tqma35_register_smsc9115();
+#endif
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 
