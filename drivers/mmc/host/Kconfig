@@ -252,6 +252,17 @@ config MMC_MXC
 
 	  If unsure, say N.
 
+config MMC_IMX_ESDHCI
+	tristate "Freescale i.MX Secure Digital Host Controller Interface support"
+	depends on ARCH_MXC && MMC
+	help
+	  This selects the Freescale i.MX Multimedia card Interface.
+	  If you have a i.MX platform with a Multimedia Card slot,
+	  say Y or M here.
+
+	  If unsure, say N.
+
+
 config MMC_TIFM_SD
 	tristate "TI Flash Media MMC/SD Interface support  (EXPERIMENTAL)"
 	depends on EXPERIMENTAL && PCI
