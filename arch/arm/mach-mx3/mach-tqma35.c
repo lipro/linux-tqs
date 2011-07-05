@@ -44,6 +44,10 @@
 #if defined CONFIG_I2C_IMX || defined CONFIG_I2C_IMX_MODULE
 #include <mach/i2c.h>
 #endif
+#if defined CONFIG_SPI_IMX || defined CONFIG_SPI_IMX_MODULE
+#include <mach/spi.h>
+#include <linux/spi/spi.h>
+#endif
 #include <mach/iomux-mx35.h>
 #include <mach/ipu.h>
 #include <mach/mx3fb.h>
@@ -195,6 +199,55 @@ static struct imxuart_platform_data uart1_pdata = {
 static struct imxuart_platform_data uart2_pdata = {
 	.flags = IMXUART_HAVE_RTSCTS,
 };
+
+#if defined CONFIG_SPI_IMX || defined CONFIG_SPI_IMX_MODULE
+
+/* CSPI1 */
+
+/* use GPIO based chipselect for CSPI1 */
+#define TQMA35_SPI0_CS0 TQMA35_GPIO_ID(1, 18)
+#define TQMA35_SPI0_CS1 TQMA35_GPIO_ID(1, 19)
+#define TQMA35_SPI0_CS3 TQMA35_GPIO_ID(2, 6)
+
+static int tqma35_spi0_cs[] = {
+	TQMA35_SPI0_CS0,
+	TQMA35_SPI0_CS1,
+	TQMA35_SPI0_CS3,
+};
+
+static struct spi_imx_master tqma35_spi0_master = {
+	.chipselect	= tqma35_spi0_cs,
+	.num_chipselect	= ARRAY_SIZE(tqma35_spi0_cs),
+};
+
+/* CSPI2 */
+
+/* use GPIO based chipselect for CSPI2 */
+#define TQMA35_SPI1_CS0 TQMA35_GPIO_ID(1, 6)
+
+static int tqma35_spi1_cs[] = {
+	TQMA35_SPI1_CS0,
+};
+
+static struct spi_imx_master tqma35_spi1_master = {
+	.chipselect	= tqma35_spi1_cs,
+	.num_chipselect	= ARRAY_SIZE(tqma35_spi1_cs),
+};
+
+static int tqma35_register_spi(void)
+{
+	mxc_register_device(&mxc_spi_device0, &tqma35_spi0_master);
+	printk(KERN_INFO "cspi1 registered\n");
+	mxc_register_device(&mxc_spi_device1, &tqma35_spi1_master);
+	printk(KERN_INFO "cspi2 registered\n");
+	return 0;
+}
+#else
+static inline int tqma35_register_spi(void)
+{
+	return 0;
+}
+#endif /* CONFIG_SPI_IMX */
 
 #if defined CONFIG_I2C_IMX || defined CONFIG_I2C_IMX_MODULE
 static struct imxi2c_platform_data tqma35_i2c0_data = {
@@ -373,6 +426,29 @@ static struct pad_desc tqma35_pads[] = {
 	MX35_PAD_ATA_DATA5__GPIO2_18,
 	/* ESDHC3 WP */
 	MX35_PAD_NFRB__GPIO2_23,
+
+	/* SPI1 */
+	MX35_PAD_CSPI1_MOSI__CSPI1_MOSI,
+	MX35_PAD_CSPI1_MISO__CSPI1_MISO,
+	MX35_PAD_CSPI1_SCLK__CSPI1_SCLK,
+	MX35_PAD_CSPI1_SPI_RDY__CSPI1_RDY,
+	/* Do GPIO based chip-select */
+	/*
+	MX35_PAD_CSPI1_SS0__CSPI1_SS0,
+	MX35_PAD_CSPI1_SS1__CSPI1_SS1,
+	MX35_PAD_ATA_CS0__CSPI1_SS3,
+	*/
+	MX35_PAD_CSPI1_SS0__GPIO1_18,
+	MX35_PAD_CSPI1_SS1__GPIO1_19,
+	MX35_PAD_ATA_CS0__GPIO2_6,
+	/* SPI2 */
+	MX35_PAD_STXD5__CSPI2_MOSI,
+	MX35_PAD_SRXD5__CSPI2_MISO,
+	MX35_PAD_SCK5__CSPI2_SCLK,
+	MX35_PAD_STXFS5__CSPI2_RDY,
+	/* Do GPIO based chip-select */
+	/* MX35_PAD_HCKR__CSPI2_SS0, */
+	MX35_PAD_HCKR__GPIO1_6,
 };
 
 static struct mxc_usbh_platform_data otg_pdata = {
@@ -520,6 +596,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_uart_device1, &uart1_pdata);
 	mxc_register_device(&mxc_uart_device2, &uart2_pdata);
 
+	tqma35_register_spi();
 #if defined CONFIG_I2C_IMX || defined CONFIG_I2C_IMX_MODULE
 	tqma35_register_i2c();
 #endif
