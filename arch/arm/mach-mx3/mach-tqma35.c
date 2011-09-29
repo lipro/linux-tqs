@@ -29,7 +29,9 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
+#if defined(CONFIG_EEPROM_AT24)
 #include <linux/i2c/at24.h>
+#endif
 #include <linux/i2c/pca953x.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/ulpi.h>
@@ -484,11 +486,13 @@ static struct imxi2c_platform_data tqma35_i2c0_data = {
 	.bitrate = 100000,
 };
 
+#if defined(CONFIG_EEPROM_AT24)
 static struct at24_platform_data board_eeprom = {
-	.byte_len = 4096,
+	.byte_len = SZ_64K / 8, /* is 64 kiBit */
 	.page_size = 32,
 	.flags = AT24_FLAG_ADDR16,
 };
+#endif
 
 /* I2C IO-Expander support for MBa35 */
 #if defined(CONFIG_GPIO_PCA953X)
@@ -738,10 +742,12 @@ static struct imxi2c_platform_data tqma35_i2c1_data = {
 };
 
 static struct i2c_board_info tqma35_i2c1_devices[] = {
+#if defined(CONFIG_EEPROM_AT24)
 	{
-		I2C_BOARD_INFO("at24", 0x50), /* E0=0, E1=0, E2=0 */
+		I2C_BOARD_INFO("24c64", 0x50), /* E0=0, E1=0, E2=0 */
 		.platform_data = &board_eeprom,
 	},
+#endif
 #if defined(CONFIG_SENSORS_LM75)
 	/* sensor on cpu board */
 	{
