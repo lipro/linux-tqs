@@ -415,7 +415,7 @@ static int tqma35_ads7846_get_pendown_state(void)
 	return !gpio_get_value(TQMA35_ADS7846_PENDOWN_GPIO1_5);
 }
 
-static void tqma35_ads7846_dev_init(struct spi_board_info *board_info,
+static void __init tqma35_ads7846_dev_init(struct spi_board_info *board_info,
 				size_t length)
 {
 	unsigned i;
@@ -456,7 +456,7 @@ static struct spi_board_info tqma35_spi_board_info[] __initdata = {
 };
 
 
-static int tqma35_register_spi(void)
+static int __init tqma35_register_spi(void)
 {
 	mxc_register_device(&mxc_spi_device0, &tqma35_spi0_master);
 	printk(KERN_INFO "cspi1 registered\n");
