@@ -997,6 +997,8 @@ static struct pad_desc tqma35_pads[] = {
 	MX35_PAD_ATA_DATA6__CAN1_TXCAN,
 	MX35_PAD_TX4_RX1__CAN2_RXCAN,
 	MX35_PAD_TX5_RX0__CAN2_TXCAN,
+	/* Buzzer on MBa35 is GPIO based*/
+	MX35_PAD_GPIO1_1__GPIO1_1,
 };
 
 static struct mxc_usbh_platform_data otg_pdata = {
