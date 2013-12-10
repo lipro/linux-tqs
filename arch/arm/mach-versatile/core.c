@@ -484,7 +484,7 @@ static struct clcd_panel vga = {
 	.width		= -1,
 	.height		= -1,
 	.tim2		= TIM2_BCD | TIM2_IPC,
-	.cntl		= CNTL_LCDTFT | CNTL_LCDVCOMP(1),
+	.cntl		= CNTL_LCDTFT | CNTL_BGR | CNTL_LCDVCOMP(1),
 	.bpp		= 16,
 };
 
@@ -507,7 +507,7 @@ static struct clcd_panel sanyo_3_8_in = {
 	.width		= -1,
 	.height		= -1,
 	.tim2		= TIM2_BCD,
-	.cntl		= CNTL_LCDTFT | CNTL_LCDVCOMP(1),
+	.cntl		= CNTL_LCDTFT | CNTL_BGR | CNTL_LCDVCOMP(1),
 	.bpp		= 16,
 };
 
@@ -530,7 +530,7 @@ static struct clcd_panel sanyo_2_5_in = {
 	.width		= -1,
 	.height		= -1,
 	.tim2		= TIM2_IVS | TIM2_IHS | TIM2_IPC,
-	.cntl		= CNTL_LCDTFT | CNTL_LCDVCOMP(1),
+	.cntl		= CNTL_LCDTFT | CNTL_BGR | CNTL_LCDVCOMP(1),
 	.bpp		= 16,
 };
 
@@ -553,7 +553,7 @@ static struct clcd_panel epson_2_2_in = {
 	.width		= -1,
 	.height		= -1,
 	.tim2		= TIM2_BCD | TIM2_IPC,
-	.cntl		= CNTL_LCDTFT | CNTL_LCDVCOMP(1),
+	.cntl		= CNTL_LCDTFT | CNTL_BGR | CNTL_LCDVCOMP(1),
 	.bpp		= 16,
 };
 
