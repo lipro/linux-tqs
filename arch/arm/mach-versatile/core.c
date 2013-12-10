@@ -488,6 +488,29 @@ static struct clcd_panel vga = {
 	.bpp		= 16,
 };
 
+static struct clcd_panel svga = {
+	.mode		= {
+		.name		= "SVGA",
+		.refresh	= 0,
+		.xres		= 800,
+		.yres		= 600,
+		.pixclock	= 27778,
+		.left_margin	= 20,
+		.right_margin	= 20,
+		.upper_margin	= 5,
+		.lower_margin	= 5,
+		.hsync_len	= 164,
+		.vsync_len	= 62,
+		.sync		= 0,
+		.vmode		= FB_VMODE_NONINTERLACED,
+	},
+	.width		= -1,
+	.height		= -1,
+	.tim2		= TIM2_BCD,
+	.cntl		= CNTL_LCDTFT | CNTL_BGR | CNTL_LCDVCOMP(1),
+	.bpp		= 16,
+};
+
 static struct clcd_panel sanyo_3_8_in = {
 	.mode		= {
 		.name		= "Sanyo QVGA",
