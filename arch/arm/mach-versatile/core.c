@@ -600,7 +600,7 @@ static struct clcd_panel *versatile_clcd_panel(void)
 	else if (val == SYS_CLCD_ID_EPSON_2_2)
 		panel = &epson_2_2_in;
 	else if (val == SYS_CLCD_ID_VGA)
-		panel = &vga;
+		panel = &svga;
 	else {
 		printk(KERN_ERR "CLCD: unknown LCD panel ID 0x%08x, using VGA\n",
 			val);
