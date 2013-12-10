@@ -511,6 +511,29 @@ static struct clcd_panel svga = {
 	.bpp		= 16,
 };
 
+static struct clcd_panel psp_p = {
+	.mode		= {
+		.name		= "PSP Portrait",
+		.refresh	= 116,
+		.xres		= 272,
+		.yres		= 480,
+		.pixclock	= 100000,
+		.left_margin	= 40,
+		.right_margin	= 20,
+		.upper_margin	= 4,
+		.lower_margin	= 4,
+		.hsync_len	= 20,
+		.vsync_len	= 4,
+		.sync		= FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+		.vmode		= FB_VMODE_NONINTERLACED,
+	},
+	.width		= -1,
+	.height		= -1,
+	.tim2		= TIM2_IVS | TIM2_IHS | TIM2_IPC,
+	.cntl		= CNTL_LCDTFT | CNTL_BGR | CNTL_LCDVCOMP(1),
+	.bpp		= 16,
+};
+
 static struct clcd_panel sanyo_3_8_in = {
 	.mode		= {
 		.name		= "Sanyo QVGA",
